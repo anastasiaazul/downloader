@@ -1,0 +1,73 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Install ffmpeg and copy to bin (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg
+          mkdir -p bin
+          cp "$(which ffmpeg)" bin/ffmpeg
+          chmod +x bin/ffmpeg
+
+      - name: Install ffmpeg and copy to bin (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          $cmd = Get-Command ffmpeg -ErrorAction SilentlyContinue
+          if ($cmd) {
+            $src = $cmd.Source
+          } else {
+            $src = "C:\ProgramData\chocolatey\bin\ffmpeg.exe"
+          }
+          New-Item -ItemType Directory -Force -Path bin | Out-Null
+          Copy-Item $src bin\ffmpeg.exe
+
+      - name: Build with PyInstaller
+        run: pyinstaller downloader.spec
+
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: cd dist && zip -r YT-MP3-Downloader-mac.zip YT-MP3-Downloader.app
+
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist\YT-MP3-Downloader -DestinationPath dist\YT-MP3-Downloader-windows.zip
+
+      - name: Upload macOS artifact
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: YT-MP3-Downloader-mac
+          path: dist/YT-MP3-Downloader-mac.zip
+          retention-days: 30
+
+      - name: Upload Windows artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: YT-MP3-Downloader-windows
+          path: dist/YT-MP3-Downloader-windows.zip
+          retention-days: 30
