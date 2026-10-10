@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Rebuild weekly so the bundled yt-dlp keeps up with YouTube changes
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   build:
@@ -44,6 +47,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path bin | Out-Null
           Copy-Item $src bin\ffmpeg.exe
 
+      - name: Copy deno to bin
+        shell: python
+        run: |
+          import os, shutil, deno
+          os.makedirs('bin', exist_ok=True)
+          src = deno.find_deno_bin()
+          shutil.copy2(src, os.path.join('bin', os.path.basename(src)))
+
       - name: Build with PyInstaller
         run: pyinstaller downloader.spec
 
@@ -71,3 +82,22 @@ jobs:
           name: YT-MP3-Downloader-windows
           path: dist/YT-MP3-Downloader-windows.zip
           retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build ${{ github.run_number }}
+          make_latest: true
+          files: artifacts/*.zip

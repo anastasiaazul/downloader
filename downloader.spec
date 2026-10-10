@@ -7,16 +7,21 @@ block_cipher = None
 ct_datas, ct_binaries, ct_hiddenimports = collect_all('customtkinter')
 ytdlp_datas, ytdlp_binaries, ytdlp_hiddenimports = collect_all('yt_dlp')
 
-bin_name = 'ffmpeg.exe' if sys.platform == 'win32' else 'ffmpeg'
-ffmpeg_src = os.path.join('bin', bin_name)
-extra_binaries = [(ffmpeg_src, 'bin')] if os.path.isfile(ffmpeg_src) else []
+ejs_datas, ejs_binaries, ejs_hiddenimports = collect_all('yt_dlp_ejs')
+
+exe_ext = '.exe' if sys.platform == 'win32' else ''
+extra_binaries = []
+for tool in ('ffmpeg', 'deno'):
+    src = os.path.join('bin', tool + exe_ext)
+    if os.path.isfile(src):
+        extra_binaries.append((src, 'bin'))
 
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=ct_binaries + ytdlp_binaries + extra_binaries,
-    datas=ct_datas + ytdlp_datas,
-    hiddenimports=ct_hiddenimports + ytdlp_hiddenimports,
+    binaries=ct_binaries + ytdlp_binaries + ejs_binaries + extra_binaries,
+    datas=ct_datas + ytdlp_datas + ejs_datas,
+    hiddenimports=ct_hiddenimports + ytdlp_hiddenimports + ejs_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

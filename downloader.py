@@ -3,14 +3,24 @@ import sys
 import yt_dlp
 
 
-def get_ffmpeg_path():
+def get_bundled_bin(tool):
     if getattr(sys, 'frozen', False):
-        base = sys._MEIPASS
-        name = 'ffmpeg.exe' if sys.platform == 'win32' else 'ffmpeg'
-        path = os.path.join(base, 'bin', name)
+        name = f'{tool}.exe' if sys.platform == 'win32' else tool
+        path = os.path.join(sys._MEIPASS, 'bin', name)
         if os.path.isfile(path):
             return path
     return None
+
+
+def get_deno_path():
+    path = get_bundled_bin('deno')
+    if path:
+        return path
+    try:
+        import deno
+        return deno.find_deno_bin()
+    except Exception:
+        return None
 
 
 def download_mp3(url, output_dir, on_progress, on_done, on_error):
@@ -37,9 +47,14 @@ def download_mp3(url, output_dir, on_progress, on_done, on_error):
         'no_warnings': True,
     }
 
-    ffmpeg = get_ffmpeg_path()
+    ffmpeg = get_bundled_bin('ffmpeg')
     if ffmpeg:
         opts['ffmpeg_location'] = ffmpeg
+
+    # YouTube needs a JS runtime to solve its challenges, otherwise downloads 403
+    deno_bin = get_deno_path()
+    if deno_bin:
+        opts['js_runtimes'] = {'deno': {'path': deno_bin}}
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
